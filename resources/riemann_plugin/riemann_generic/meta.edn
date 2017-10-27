@@ -1,0 +1,4 @@
+{:plugin "riemann-generic"
+ :title  "Description soon"
+ :git-repo "https://github.com/mcorbin/riemann-generic"
+ :require riemann-generic.core}
