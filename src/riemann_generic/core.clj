@@ -8,9 +8,17 @@
 ;; (setq clojure-defun-style-default-indent t)
 
 
-{:threshold [{:service "foo" :warning 60 :critical 80 :children [#(:metric)]}]
- :above [{:threshold 90 :duration 60}]
- }
+;; {:threshold [{:service "foo" :warning 60 :critical 80 :children [email pagerduty]}
+;;              {:service "bar" :warning 30 :critical 120 :children [email]}]
+;;  :above [{:threshold 90 :duration 60 :service "foo" :children [pagerduty]}
+;;          {:threshold 50 :duration 20 :service "bar" :children [email]}]
+;;  :threshold-fn [{:service "baz" :operation > :critical 80 :children [email]}
+;;                 {:service "baz" :operation < :critical 20 :children [email]}]
+;;  :between [{:service "foo"
+;;             :min-threshold 60
+;;             :max-threshold 80
+;;             :duration 80
+;;             :children [email]}]}
 
 (defn threshold
   [opts & children]
