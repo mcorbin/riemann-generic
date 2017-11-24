@@ -23,7 +23,7 @@
 (defn threshold-fn
   [opts & children]
   (where (and (service (:service opts))
-              ((:operation opts) (:threshold opts)))
+              ((:operation opts) (:critical opts)))
     (with :state "critical"
       (fn [event]
         (call-rescue event children)))))
@@ -59,6 +59,5 @@
 (defn critical
   [opts & children]
   (dt/critical (:duration opts)
-    (with :state "critical"
-      (fn [event]
-        (call-rescue event children)))))
+    (fn [event]
+      (call-rescue event children))))
