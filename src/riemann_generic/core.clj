@@ -7,6 +7,11 @@
 
 ;; (setq clojure-defun-style-default-indent t)
 
+
+{:threshold [{:service "foo" :warning 60 :critical 80 :children [#(:metric)]}]
+ :above [{:threshold 90 :duration 60}]
+ }
+
 (defn threshold
   [opts & children]
   (where (service (:service opts))
@@ -30,34 +35,39 @@
 
 (defn above
   [opts & children]
-  (dt/above (:threshold opts) (:duration opts)
-   (with :state "critical"
-     (fn [event]
-       (call-rescue event children)))))
+  (where (service (:service opts))
+    (dt/above (:threshold opts) (:duration opts)
+      (with :state "critical"
+        (fn [event]
+          (call-rescue event children))))))
 
 (defn below
   [opts & children]
-  (dt/below (:threshold opts) (:duration opts)
-    (with :state "critical"
-      (fn [event]
-        (call-rescue event children)))))
+  (where (service (:service opts))
+    (dt/below (:threshold opts) (:duration opts)
+      (with :state "critical"
+        (fn [event]
+          (call-rescue event children))))))
 
 (defn outside
   [opts & children]
-  (dt/outside (:min-threshold opts) (:max-threshold opts) (:duration opts)
-    (with :state "critical"
-      (fn [event]
-        (call-rescue event children)))))
+  (where (service (:service opts))
+    (dt/outside (:min-threshold opts) (:max-threshold opts) (:duration opts)
+      (with :state "critical"
+        (fn [event]
+          (call-rescue event children))))))
 
 (defn between
   [opts & children]
-  (dt/between (:min-threshold opts) (:max-threshold opts) (:duration opts)
-    (with :state "critical"
-      (fn [event]
-        (call-rescue event children)))))
+  (where (service (:service opts))
+    (dt/between (:min-threshold opts) (:max-threshold opts) (:duration opts)
+      (with :state "critical"
+        (fn [event]
+          (call-rescue event children))))))
 
 (defn critical
   [opts & children]
-  (dt/critical (:duration opts)
-    (fn [event]
-      (call-rescue event children))))
+  (where (service (:service opts))
+    (dt/critical (:duration opts)
+      (fn [event]
+        (call-rescue event children)))))
