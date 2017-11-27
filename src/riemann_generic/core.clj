@@ -7,33 +7,48 @@
 
 ;; (setq clojure-defun-style-default-indent t)
 
-
-;; {:threshold [{:service "foo" :warning 60 :critical 80 :children [email pagerduty]}
-;;              {:service "bar" :warning 30 :critical 120 :children [email]}]
-;;  :above [{:threshold 90 :duration 60 :service "foo" :children [pagerduty]}
-;;          {:threshold 50 :duration 20 :service "bar" :children [email]}]
-;;  :threshold-fn [{:service "baz" :operation > :critical 80 :children [email]}
-;;                 {:service "baz" :operation < :critical 20 :children [email]}]
-;;  :between [{:service "foo"
-;;             :min-threshold 60
-;;             :max-threshold 80
-;;             :duration 80
-;;             :children [email]}]}
-
 (defn threshold
+  "Filter events using the `:service` opts value, compare the `:metric` event
+  value with the values of `:warning` in `:critical` in `opts` and update the
+  event state accordely, and forward to children.
+
+  `opts` keys:
+  - `:service`  : Filter all events using `(service (:service opts))`
+  - `:critical` : A number, the event `:state` will be set to `critical` if the
+  event metric is >= to the value.
+  - `:warning`  : A number, the event `:state` will be set to `warning` if the
+  event metric is < to `:critical` and >= to `:warning`
+
+  Example
+
+  (threshold {:service \"foo\" :warning 30 :critical 70} email)"
   [opts & children]
   (where (service (:service opts))
-    (where (and (< (:metric event) (:critical opts))
-                (>= (:metric event) (:warning opts)))
-      (with :state "warning"
-        (fn [event]
-          (call-rescue event children))))
+    (when (:warning opts)
+      (where (and (< (:metric event) (:critical opts))
+                  (>= (:metric event) (:warning opts)))
+        (with :state "warning"
+          (fn [event]
+            (call-rescue event children)))))
     (where (>= (:metric event) (:critical opts))
       (with :state "critical"
         (fn [event]
           (call-rescue event children))))))
 
 (defn threshold-fn
+  [opts & children]
+  (where (service (:service opts))
+    (when (:warning-fn opts)
+      (where ((:warning-fn opts) event)
+        (with :state "warning"
+          (fn [event]
+            (call-rescue event children)))))
+    (where ((:critical-fn opts) event)
+      (with :state "critical"
+        (fn [event]
+          (call-rescue event children))))))
+
+(defn threshold-fn-crit
   [opts & children]
   (where (and (service (:service opts))
               ((:operation opts) (:critical opts)))
@@ -79,3 +94,44 @@
     (dt/critical (:duration opts)
       (fn [event]
         (call-rescue event children)))))
+
+(defn expired-service
+  [opts & children]
+  (expired
+    (where (service (:service opts))
+      (fn [event]
+        (call-rescue event children)))))
+
+(defn generate-stream
+  [[stream-key config]]
+  (let [s (condp = stream-key
+            :threshold threshold
+            :threshold-fn threshold-fn
+            :above above
+            :below below
+            :outside outside
+            :between between
+            :critical critical)
+        children (:children config)]
+    (apply (partial s (dissoc config :children))
+           children)))
+
+(defn generate-streams
+  [config]
+  (let [children (mapv generate-stream config)]
+    (fn [event]
+      (call-rescue event children))))
+
+
+
+;; {:threshold [{:service "foo" :warning 60 :critical 80 :children [email pagerduty]}
+;;              {:service "bar" :warning 30 :critical 120 :children [email]}]
+;;  :above [{:threshold 90 :duration 60 :service "foo" :children [pagerduty]}
+;;          {:threshold 50 :duration 20 :service "bar" :children [email]}]
+;;  :threshold-fn [{:service "baz" :operation > :critical 80 :children [email]}
+;;                 {:service "baz" :operation < :critical 20 :children [email]}]
+;;  :between [{:service "foo"
+;;             :min-threshold 60
+;;             :max-threshold 80
+;;             :duration 80
+;;             :children [email]}]}
