@@ -67,6 +67,23 @@
           (call-rescue event children))))))
 
 (defn above
+  "Filter events using the `:service` opts value.
+
+  If the condition `(> (:metric event) threshold)` is valid for all events
+  received during at least the period `dt`, valid events received after the `dt`
+  period will be passed on until an invalid event arrives. Forward to children.
+  `:metric` should not be nil (it will produce exceptions).
+
+  `opts` keys:
+  - `:service`   : Filter all events using `(service (:service opts))`
+  - `:threshold` : The threshold used by the above stream
+  - `:duration`   : The time period in seconds.
+
+  Example:
+
+  (above {:threshold 70 :duration 10 :service \"bar\"} email)
+
+  Set `:state` to \"critical\" if events `:metric` is > to 70 during 10 sec or more."
   [opts & children]
   (where (service (:service opts))
     (dt/above (:threshold opts) (:duration opts)
@@ -75,6 +92,23 @@
           (call-rescue event children))))))
 
 (defn below
+  "Filter events using the `:service` opts value.
+
+  If the condition `(< (:metric event) threshold)` is valid for all events
+  received during at least the period `dt`, valid events received after the `dt`
+  period will be passed on until an invalid event arrives. Forward to children.
+  `:metric` should not be nil (it will produce exceptions).
+
+  `opts` keys:
+  - `:service`   : Filter all events using `(service (:service opts))`
+  - `:threshold` : The threshold used by the above stream
+  - `:duration`   : The time period in seconds.
+
+  Example:
+
+  (below {:threshold 70 :duration 10 :service \"bar\"} email)
+
+  Set `:state` to \"critical\" if events `:metric` is < to 70 during 10 sec or more."
   [opts & children]
   (where (service (:service opts))
     (dt/below (:threshold opts) (:duration opts)
@@ -83,6 +117,24 @@
           (call-rescue event children))))))
 
 (defn outside
+  "Filter events using the `:service` opts value.
+
+  If the condition `(or (< (:metric event) low) (> (:metric event) high))` is valid for all events received during at least the period `dt`, valid events received after the `dt` period will be passed on until an invalid event arrives.
+
+  `opts` keys:
+  - `:service`   : Filter all events using `(service (:service opts))`
+  - `:min-threshold` : The min threshold
+  - `:max-threshold` : The max threshold
+  - `:duration`   : The time period in seconds.
+
+  Example:
+
+  (outside {:min-threshold 70
+            :max-threshold 90
+            :duration 10
+            :service \"bar\"})
+
+  Set `:state` to \"critical\" if events `:metric` is < to 70 or > 90 during 10 sec or more."
   [opts & children]
   (where (service (:service opts))
     (dt/outside (:min-threshold opts) (:max-threshold opts) (:duration opts)
@@ -91,6 +143,25 @@
           (call-rescue event children))))))
 
 (defn between
+  "Filter events using the `:service` opts value.
+
+  If the condition `(and (> (:metric event) low) (< (:metric event) high))` is valid for all events received during at least the period `dt`, valid events received after the `dt` period will be passed on until an invalid event arrives.
+
+  `:metric` should not be nil (it will produce exceptions).
+  `opts` keys:
+  - `:service`   : Filter all events using `(service (:service opts))`
+  - `:min-threshold` : The min threshold
+  - `:max-threshold` : The max threshold
+  - `:duration`   : The time period in seconds.
+
+  Example:
+
+  (between {:min-threshold 70
+            :max-threshold 90
+            :duration 10
+            :service \"bar\"})
+
+  Set `:state` to \"critical\" if events `:metric` is > to 70 and < 90 during 10 sec or more."
   [opts & children]
   (where (service (:service opts))
     (dt/between (:min-threshold opts) (:max-threshold opts) (:duration opts)
@@ -99,6 +170,20 @@
           (call-rescue event children))))))
 
 (defn critical
+  "Filter events using the `:service` opts value.
+
+  Takes a time period in seconds `dt`.
+  If all events received during at least the period `dt` have `:state` critical, new critical events received after the `dt` period will be passed on until an invalid event arrives.
+
+  `opts` keys:
+  - `:service`   : Filter all events using `(service (:service opts))`
+  - `:duration`   : The time period in seconds.
+
+  Example:
+
+  (critical {:service \"bar\" :duration \"10\"} email)
+
+  Set `:state` to \"critical\" if events `:state` is critical during 10 sec or more."
   [opts & children]
   (where (service (:service opts))
     (dt/critical (:duration opts)
