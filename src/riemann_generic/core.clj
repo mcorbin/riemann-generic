@@ -66,14 +66,6 @@
         (fn [event]
           (call-rescue event children))))))
 
-(defn threshold-fn-crit
-  [opts & children]
-  (where (and (service (:service opts))
-              ((:operation opts) (:critical opts)))
-    (with :state "critical"
-      (fn [event]
-        (call-rescue event children)))))
-
 (defn above
   [opts & children]
   (where (service (:service opts))
