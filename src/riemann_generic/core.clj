@@ -17,9 +17,9 @@
   - `:critical` : A number, the event `:state` will be set to `critical` if the
   event metric is >= to the value.
   - `:warning`  : A number, the event `:state` will be set to `warning` if the
-  event metric is < to `:critical` and >= to `:warning`
+  event metric is < to `:critical` and >= to `:warning` (optional)
 
-  Example
+  Example:
 
   (threshold {:service \"foo\" :warning 30 :critical 70} email)"
   [opts & children]
@@ -36,6 +36,24 @@
           (call-rescue event children))))))
 
 (defn threshold-fn
+  "Filter events using the `:service` opts value, use the `:warning-fn` and
+  `:critical-fn` values (which should be function accepting an event)
+  to set the event `:state` accordely. Forward events to children
+
+  `opts` keys:
+  - `:service`  : Filter all events using `(service (:service opts))`
+  - `:critical-fn` : A function accepting an event and returning a boolean.
+  - `:warning-fn`  : A function accepting an event and returning a boolean (optional).
+
+  Example:
+
+  (threshold-fn {:service \"foo\"
+                 :warning-fn #(and (>= (:metric %) 30)
+                                   (< (:metric %) 70))
+                 :critical-fn #(>= (:metric %) 70)})
+
+  In this example, event :state will be \"warning\" if `:metric` is >= 30 and < 70
+  and \"critical\" if `:metric` is >= 70"
   [opts & children]
   (where (service (:service opts))
     (when (:warning-fn opts)
