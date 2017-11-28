@@ -163,20 +163,6 @@
                  {:service "foo" :metric 70 :state "critical"}
                  {:service "foo" :metric 90 :state "critical"}]))))
 
-
-;; (deftest percentiles-crit-test
-;;   (test-stream (percentiles-crit {:service "api req"
-;;                                   :duration 20
-;;                                   :points {0.99 {:fn >
-;;                                                  :critical 100}
-;;                                            0.50 {:fn >
-;;                                                  :critical 500}}})
-;;     [{:time 0 :service "api req" :metric 110}
-;;      {:time 21 :service "api req" :metric 110}]
-;;     [{:state "critical" :time 12 :service "bar"}
-;;      {:state "critical" :time 13 :service "bar"}]))
-
-
 (deftest percentile-crit-test
   (test-stream (percentile-crit {:service "api req"
                                  :fn >
@@ -226,3 +212,18 @@
            {:time 25 :service "api req 1" :metric 601}
            {:time 23 :service "api req 0.5" :metric 503}
            {:time 23 :service "api req 0" :metric 30}]))))
+
+(deftest scount-test
+  (test-stream (scount {:service "foo" :duration 20})
+    [{:service "foo" :time 1}
+     {:service "bar" :time 1}
+     {:service "foo" :time 19}
+     {:service "bar" :time 21}
+     {:service "foo" :time 30}
+     {:service "foo" :time 31}
+     {:service "foo" :time 35}
+     {:service "foo" :time 61}]
+    [{:service "foo count" :time 1 :metric 2}
+     {:service "foo count" :time 30 :metric 3}
+     ;; no event during the time window
+     (riemann.common/event {:metric 0 :service "foo count" :time 61})]))

@@ -222,8 +222,7 @@ Example:
                    :points {1 {:critical-fn #(> (:metric %) 100)
                                :warning-fn #(> (:metric %) 100)}
                             0.50 {:critical-fn #(> (:metric %) 500)}
-                            0 {:critical-fn #(> (:metric %) 1000)
-                               :critical 1000}}}"
+                            0 {:critical-fn #(> (:metric %) 1000)}}}"
   [opts & children]
   (let [points (mapv first (:points opts))
         percentiles-streams (mapv (fn [[point conf]]
@@ -237,6 +236,28 @@ Example:
       (percentiles (:duration opts) points
         (fn [event]
           (call-rescue event children))))))
+
+(defn scount
+  [opts & children]
+  (where (service (:service opts))
+    (fixed-time-window 20
+      (smap riemann.folds/count
+        (fn [event]
+          (call-rescue (assoc event :service (str (:service opts) " count"))
+            children))))))
+
+(defn scount-crit
+  [opts & children]
+  (scount opts
+    (where ((:critical-fn opts) event)
+      (with :state "critical"
+        (fn [event]
+          (call-rescue event children))))
+    (when-let [warning-fn (:warning-fn opts)]
+      (where (warning-fn event)
+        (with :state "warning"
+          (fn [event]
+            (call-rescue event children)))))))
 
 (defn generate-stream
   [[stream-key config]]
