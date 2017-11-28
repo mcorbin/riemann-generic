@@ -190,12 +190,53 @@
       (fn [event]
         (call-rescue event children)))))
 
-(defn expired-service
+(defn percentile-crit
   [opts & children]
-  (expired
+  (where (service (str (:service opts) " " (:point opts)))
+    (when-let [warning-fn (:warning-fn opts)]
+      (where (warning-fn event)
+        (with :state "warning"
+          (fn [event]
+            (call-rescue event children)))))
+    (where ((:critical-fn opts) event)
+      (with :state "critical"
+        (fn [event]
+          (call-rescue event children))))))
+
+(defn percentiles-crit
+  "Calculates percentiles and alert on it.
+
+  `opts` keys:
+  - `:service`   : Filter all events using `(service (:service opts))`
+  - `:duration`  : The time period in seconds.
+  - `:points`    : A map, the keys are the percentiles points.
+  The value should be a map with these keys:
+  - `:critical-fn` a function accepting an event and returning a boolean.
+  - `:warning-fn` a function accepting an event and returning a boolean.
+  For each point, if the event match `:warning-fn` and `:critical-fn`, the event `:state` will be \"warning\" or \"critical\"
+
+Example:
+
+(percentiles-crit {:service \"api req\"
+                   :duration 20
+                   :points {1 {:critical-fn #(> (:metric %) 100)
+                               :warning-fn #(> (:metric %) 100)}
+                            0.50 {:critical-fn #(> (:metric %) 500)}
+                            0 {:critical-fn #(> (:metric %) 1000)
+                               :critical 1000}}}"
+  [opts & children]
+  (let [points (mapv first (:points opts))
+        percentiles-streams (mapv (fn [[point conf]]
+                                    (percentile-crit
+                                     (assoc conf :service (:service opts)
+                                                 :point point)
+                                      (first children)))
+                              (:points opts))
+        children (conj percentiles-streams (second children))]
     (where (service (:service opts))
-      (fn [event]
-        (call-rescue event children)))))
+      (percentiles (:duration opts) points
+        (fn [event]
+          (call-rescue event children))))))
 
 (defn generate-stream
   [[stream-key config]]
@@ -205,6 +246,7 @@
             :above above
             :below below
             :outside outside
+            :percentiles-crit percentiles-crit
             :between between
             :critical critical)
         children (:children config)]
