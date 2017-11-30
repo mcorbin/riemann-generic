@@ -8,12 +8,10 @@
 ;; (setq clojure-defun-style-default-indent t)
 
 (defn threshold
-  "Filter events using the `:service` opts value, compare the `:metric` event
-  value with the values of `:warning` in `:critical` in `opts` and update the
-  event state accordely, and forward to children.
+  "Compare the `:metric` event value with the values of `:warning` in `:critical`
+  in `opts` and update the event state accordely, and forward to children.
 
   `opts` keys:
-  - `:service`  : Filter all events using `(service (:service opts))`
   - `:critical` : A number, the event `:state` will be set to `critical` if the
   event metric is >= to the value.
   - `:warning`  : A number, the event `:state` will be set to `warning` if the
@@ -21,108 +19,97 @@
 
   Example:
 
-  (threshold {:service \"foo\" :warning 30 :critical 70} email)"
+  (threshold {:warning 30 :critical 70} email)"
   [opts & children]
-  (where (service (:service opts))
+  (sdo
     (when (:warning opts)
       (where (and (< (:metric event) (:critical opts))
-                  (>= (:metric event) (:warning opts)))
+               (>= (:metric event) (:warning opts)))
         (with :state "warning"
           (fn [event]
             (call-rescue event children)))))
-    (where (>= (:metric event) (:critical opts))
-      (with :state "critical"
-        (fn [event]
-          (call-rescue event children))))))
+    (when (:critical opts)
+      (where (>= (:metric event) (:critical opts))
+        (with :state "critical"
+          (fn [event]
+            (call-rescue event children)))))))
 
 (defn threshold-fn
-  "Filter events using the `:service` opts value, use the `:warning-fn` and
-  `:critical-fn` values (which should be function accepting an event)
-  to set the event `:state` accordely. Forward events to children
+  "Use the `:warning-fn` and `:critical-fn` values (which should be function
+  accepting an event) to set the event `:state` accordely. Forward events to
+  children
 
   `opts` keys:
-  - `:service`  : Filter all events using `(service (:service opts))`
   - `:critical-fn` : A function accepting an event and returning a boolean.
   - `:warning-fn`  : A function accepting an event and returning a boolean (optional).
 
   Example:
 
-  (threshold-fn {:service \"foo\"
-                 :warning-fn #(and (>= (:metric %) 30)
+  (threshold-fn {:warning-fn #(and (>= (:metric %) 30)
                                    (< (:metric %) 70))
                  :critical-fn #(>= (:metric %) 70)})
 
   In this example, event :state will be \"warning\" if `:metric` is >= 30 and < 70
   and \"critical\" if `:metric` is >= 70"
   [opts & children]
-  (where (service (:service opts))
+  (sdo
     (when (:warning-fn opts)
       (where ((:warning-fn opts) event)
         (with :state "warning"
           (fn [event]
             (call-rescue event children)))))
-    (where ((:critical-fn opts) event)
-      (with :state "critical"
-        (fn [event]
-          (call-rescue event children))))))
+    (when (:critical-fn opts)
+      (where ((:critical-fn opts) event)
+        (with :state "critical"
+          (fn [event]
+            (call-rescue event children)))))))
 
 (defn above
-  "Filter events using the `:service` opts value.
-
-  If the condition `(> (:metric event) threshold)` is valid for all events
+  "If the condition `(> (:metric event) threshold)` is valid for all events
   received during at least the period `dt`, valid events received after the `dt`
   period will be passed on until an invalid event arrives. Forward to children.
   `:metric` should not be nil (it will produce exceptions).
 
   `opts` keys:
-  - `:service`   : Filter all events using `(service (:service opts))`
   - `:threshold` : The threshold used by the above stream
   - `:duration`   : The time period in seconds.
 
   Example:
 
-  (above {:threshold 70 :duration 10 :service \"bar\"} email)
+  (above {:threshold 70 :duration 10} email)
 
   Set `:state` to \"critical\" if events `:metric` is > to 70 during 10 sec or more."
   [opts & children]
-  (where (service (:service opts))
-    (dt/above (:threshold opts) (:duration opts)
-      (with :state "critical"
-        (fn [event]
-          (call-rescue event children))))))
+  (dt/above (:threshold opts) (:duration opts)
+    (with :state "critical"
+      (fn [event]
+        (call-rescue event children)))))
 
 (defn below
-  "Filter events using the `:service` opts value.
-
-  If the condition `(< (:metric event) threshold)` is valid for all events
+  "If the condition `(< (:metric event) threshold)` is valid for all events
   received during at least the period `dt`, valid events received after the `dt`
   period will be passed on until an invalid event arrives. Forward to children.
   `:metric` should not be nil (it will produce exceptions).
 
   `opts` keys:
-  - `:service`   : Filter all events using `(service (:service opts))`
   - `:threshold` : The threshold used by the above stream
   - `:duration`   : The time period in seconds.
 
   Example:
 
-  (below {:threshold 70 :duration 10 :service \"bar\"} email)
+  (below {:threshold 70 :duration 10} email)
 
   Set `:state` to \"critical\" if events `:metric` is < to 70 during 10 sec or more."
   [opts & children]
-  (where (service (:service opts))
-    (dt/below (:threshold opts) (:duration opts)
-      (with :state "critical"
-        (fn [event]
-          (call-rescue event children))))))
+  (dt/below (:threshold opts) (:duration opts)
+    (with :state "critical"
+      (fn [event]
+        (call-rescue event children)))))
 
 (defn outside
-  "Filter events using the `:service` opts value.
-
-  If the condition `(or (< (:metric event) low) (> (:metric event) high))` is valid for all events received during at least the period `dt`, valid events received after the `dt` period will be passed on until an invalid event arrives.
+  "If the condition `(or (< (:metric event) low) (> (:metric event) high))` is valid for all events received during at least the period `dt`, valid events received after the `dt` period will be passed on until an invalid event arrives.
 
   `opts` keys:
-  - `:service`   : Filter all events using `(service (:service opts))`
   - `:min-threshold` : The min threshold
   - `:max-threshold` : The max threshold
   - `:duration`   : The time period in seconds.
@@ -131,25 +118,20 @@
 
   (outside {:min-threshold 70
             :max-threshold 90
-            :duration 10
-            :service \"bar\"})
+            :duration 10})
 
   Set `:state` to \"critical\" if events `:metric` is < to 70 or > 90 during 10 sec or more."
   [opts & children]
-  (where (service (:service opts))
-    (dt/outside (:min-threshold opts) (:max-threshold opts) (:duration opts)
-      (with :state "critical"
-        (fn [event]
-          (call-rescue event children))))))
+  (dt/outside (:min-threshold opts) (:max-threshold opts) (:duration opts)
+    (with :state "critical"
+      (fn [event]
+        (call-rescue event children)))))
 
 (defn between
-  "Filter events using the `:service` opts value.
-
-  If the condition `(and (> (:metric event) low) (< (:metric event) high))` is valid for all events received during at least the period `dt`, valid events received after the `dt` period will be passed on until an invalid event arrives.
+  "If the condition `(and (> (:metric event) low) (< (:metric event) high))` is valid for all events received during at least the period `dt`, valid events received after the `dt` period will be passed on until an invalid event arrives.
 
   `:metric` should not be nil (it will produce exceptions).
   `opts` keys:
-  - `:service`   : Filter all events using `(service (:service opts))`
   - `:min-threshold` : The min threshold
   - `:max-threshold` : The max threshold
   - `:duration`   : The time period in seconds.
@@ -163,32 +145,27 @@
 
   Set `:state` to \"critical\" if events `:metric` is > to 70 and < 90 during 10 sec or more."
   [opts & children]
-  (where (service (:service opts))
-    (dt/between (:min-threshold opts) (:max-threshold opts) (:duration opts)
-      (with :state "critical"
-        (fn [event]
-          (call-rescue event children))))))
+  (dt/between (:min-threshold opts) (:max-threshold opts) (:duration opts)
+    (with :state "critical"
+      (fn [event]
+        (call-rescue event children)))))
 
 (defn critical
-  "Filter events using the `:service` opts value.
-
-  Takes a time period in seconds `dt`.
-  If all events received during at least the period `dt` have `:state` critical, new critical events received after the `dt` period will be passed on until an invalid event arrives.
+  "Takes a time period in seconds `durationt`.
+  If all events received during at least the period `durationt` have `:state` critical, new critical events received after the `durationt` period will be passed on until an invalid event arrives.
 
   `opts` keys:
-  - `:service`   : Filter all events using `(service (:service opts))`
   - `:duration`   : The time period in seconds.
 
   Example:
 
-  (critical {:service \"bar\" :duration \"10\"} email)
+  (critical {:duration \"10\"} email)
 
   Set `:state` to \"critical\" if events `:state` is critical during 10 sec or more."
   [opts & children]
-  (where (service (:service opts))
-    (dt/critical (:duration opts)
-      (fn [event]
-        (call-rescue event children)))))
+  (dt/critical (:duration opts)
+    (fn [event]
+      (call-rescue event children))))
 
 (defn percentile-crit
   [opts & children]
@@ -238,15 +215,45 @@ Example:
           (call-rescue event children))))))
 
 (defn scount
+  "Takes a time period in seconds `:duration`.
+
+  Lazily count the number of events in `:duration` seconds time windows.
+  Forward the result to children
+
+  `opts` keys:
+  - `:duration`   : The time period in seconds.
+
+  Example:
+
+  (scount {:duration 20} children)
+
+  Will count the number of events in 20 seconds time windows and forward the result to children."
   [opts & children]
-  (where (service (:service opts))
-    (fixed-time-window 20
-      (smap riemann.folds/count
-        (fn [event]
-          (call-rescue (assoc event :service (str (:service opts) " count"))
-            children))))))
+  (fixed-time-window 20
+    (smap riemann.folds/count
+      (fn [event]
+        (call-rescue event children)))))
 
 (defn scount-crit
+  "Takes a time period in seconds `:duration`.
+
+  Lazily count the number of events in `:duration` seconds time windows.
+  Use the `:warning-fn` and `:critical-fn` values (which should be function
+  accepting an event) to set the event `:state` accordely
+
+  Forward the result to children
+
+  `opts` keys:
+  - `:duration`   : The time period in seconds.
+  - `:critical-fn` : A function accepting an event and returning a boolean.
+  - `:warning-fn`  : A function accepting an event and returning a boolean (optional).
+  Example:
+
+  (scount {:duration 20 :critical-fn #(> (:metric %) 5)} children)
+
+  Will count the number of events in 20 seconds time windows. If the count result
+  is > to 5, set `:state` to \"critical\" and forward and forward the result to
+  children."
   [opts & children]
   (scount opts
     (where ((:critical-fn opts) event)
@@ -259,37 +266,48 @@ Example:
           (fn [event]
             (call-rescue event children)))))))
 
+(defn expired-host
+  [opts & children]
+  (sdo
+    (where (not (expired? event))
+      (with {:service "host up"
+             :ttl (:ttl opts)}
+        (by :host
+          (throttle 1 (:throttle opts)
+            (index)))))
+    (expired
+      (where (service "host up")
+        (with :description "host stopped sending events to Riemann"
+          (fn [event]
+            (call-rescue event children)))))))
+
 (defn generate-stream
-  [[stream-key config]]
+  [[stream-key streams-config]]
   (let [s (condp = stream-key
             :threshold threshold
             :threshold-fn threshold-fn
             :above above
             :below below
+            :scount scount
+            :scount-crit scount-crit
             :outside outside
             :percentiles-crit percentiles-crit
             :between between
             :critical critical)
-        children (:children config)]
-    (apply (partial s (dissoc config :children))
-           children)))
+        streams (mapv (fn [config]
+                        (let [children (:children config)
+                              stream (apply (partial s
+                                              (dissoc config :children :match))
+                                       children)]
+                          (if-let [match-clause (:where config)]
+                            (where (match-clause event)
+                              stream)
+                            stream)))
+                  streams-config)]
+    (apply sdo streams)))
 
 (defn generate-streams
   [config]
   (let [children (mapv generate-stream config)]
     (fn [event]
       (call-rescue event children))))
-
-
-
-;; {:threshold [{:service "foo" :warning 60 :critical 80 :children [email pagerduty]}
-;;              {:service "bar" :warning 30 :critical 120 :children [email]}]
-;;  :above [{:threshold 90 :duration 60 :service "foo" :children [pagerduty]}
-;;          {:threshold 50 :duration 20 :service "bar" :children [email]}]
-;;  :threshold-fn [{:service "baz" :operation > :critical 80 :children [email]}
-;;                 {:service "baz" :operation < :critical 20 :children [email]}]
-;;  :between [{:service "foo"
-;;             :min-threshold 60
-;;             :max-threshold 80
-;;             :duration 80
-;;             :children [email]}]}

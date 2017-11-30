@@ -11,124 +11,124 @@
 
 (deftest threshold-test
   (testing "with warning key"
-    (test-stream (threshold {:service "foo" :warning 30 :critical 70})
-      [{:service "foo" :metric 29}
-       {:service "foo" :metric 30}
-       {:service "foo" :metric 40}
-       {:service "foo" :metric 70}
-       {:service "bar" :metric 70}
-       {:service "foo" :metric 90}]
-      [{:service "foo" :metric 30 :state "warning"}
-       {:service "foo" :metric 40 :state "warning"}
-       {:service "foo" :metric 70 :state "critical"}
-       {:service "foo" :metric 90 :state "critical"}]))
+    (test-stream (threshold {:warning 30 :critical 70})
+      [{:metric 29}
+       {:metric 30}
+       {:metric 40}
+       {:metric 70}
+       {:metric 90}]
+      [{:metric 30 :state "warning"}
+       {:metric 40 :state "warning"}
+       {:metric 70 :state "critical"}
+       {:metric 90 :state "critical"}]))
   (testing "without warning key"
-    (test-stream (threshold {:service "foo" :critical 70})
-      [{:service "foo" :metric 29}
-       {:service "foo" :metric 30}
-       {:service "foo" :metric 40}
-       {:service "foo" :metric 70}
-       {:service "bar" :metric 70}
-       {:service "foo" :metric 90}]
-      [{:service "foo" :metric 70 :state "critical"}
-       {:service "foo" :metric 90 :state "critical"}])))
+    (test-stream (threshold {:critical 70})
+      [{:metric 29}
+       {:metric 30}
+       {:metric 40}
+       {:metric 70}
+       {:metric 90}]
+      [{:metric 70 :state "critical"}
+       {:metric 90 :state "critical"}])))
 
 (deftest threshold-fn-test
   (testing "critical"
-    (test-stream (threshold-fn {:service "foo" :critical-fn #(>= (:metric %) 70)})
-      [{:service "foo" :metric 40}
-       {:service "foo" :metric 70}
-       {:service "bar" :metric 70}
-       {:service "foo" :metric 90}]
-      [{:service "foo" :metric 70 :state "critical"}
-       {:service "foo" :metric 90 :state "critical"}]))
+    (test-stream (threshold-fn {:critical-fn #(>= (:metric %) 70)})
+      [{:metric 40}
+       {:metric 70}
+       {:metric 90}]
+      [{:metric 70 :state "critical"}
+       {:metric 90 :state "critical"}]))
   (testing "warning and critical"
-    (test-stream (threshold-fn {:service "foo"
-                                :warning-fn #(and (>= (:metric %) 30)
+    (test-stream (threshold-fn {:warning-fn #(and (>= (:metric %) 30)
                                                (< (:metric %) 70))
                                 :critical-fn #(>= (:metric %) 70)})
-      [{:service "foo" :metric 29}
-       {:service "foo" :metric 30}
-       {:service "foo" :metric 40}
-       {:service "foo" :metric 70}
-       {:service "bar" :metric 70}
-       {:service "foo" :metric 90}]
-      [{:service "foo" :metric 30 :state "warning"}
-       {:service "foo" :metric 40 :state "warning"}
-       {:service "foo" :metric 70 :state "critical"}
-       {:service "foo" :metric 90 :state "critical"}])
-    )
-  )
+      [{:metric 29}
+       {:metric 30}
+       {:metric 40}
+       {:metric 70}
+       {:metric 90}]
+      [{:metric 30 :state "warning"}
+       {:metric 40 :state "warning"}
+       {:metric 70 :state "critical"}
+       {:metric 90 :state "critical"}])))
 
 (deftest above-test
-  (test-stream (above {:threshold 70 :duration 10 :service "bar"})
-               [{:metric 40 :time 0 :service "bar"}
-                {:metric 80 :time 1 :service "bar"}
-                {:metric 80 :time 12 :service "bar"}
-                {:metric 81 :time 13 :service "bar"}
-                {:metric 10 :time 14 :service "bar"}]
-               [{:metric 80 :state "critical" :time 12 :service "bar"}
-                {:metric 81 :state "critical" :time 13 :service "bar"}])
-  (test-stream (above {:threshold 70 :duration 10 :service "bar"})
-               [{:metric 80 :time 1 :service "bar"}
-                {:metric 80 :time 12 :service "baz"}
-                {:metric 81 :time 13 :service "baz"}]
+  (test-stream (above {:threshold 70 :duration 10})
+               [{:metric 40 :time 0}
+                {:metric 80 :time 1}
+                {:metric 80 :time 12}
+                {:metric 81 :time 13}
+                {:metric 10 :time 14}]
+               [{:metric 80 :state "critical" :time 12}
+                {:metric 81 :state "critical" :time 13}])
+  (test-stream (above {:threshold 70 :duration 10})
+               [{:metric 80 :time 1}
+                {:metric 40 :time 12}
+                {:metric 90 :time 13}]
                []))
 
 (deftest below-test
-  (test-stream (below {:threshold 70 :duration 10  :service "bar"})
-               [{:metric 80 :time 0 :service "bar"}
-                {:metric 40 :time 1 :service "bar"}
-                {:metric 40 :time 12 :service "bar"}
-                {:metric 41 :time 13 :service "bar"}
-                {:metric 90 :time 14 :service "bar"}]
-               [{:metric 40 :state "critical" :time 12 :service "bar"}
-                {:metric 41 :state "critical" :time 13 :service "bar"}]))
+  (test-stream (below {:threshold 70 :duration 10})
+               [{:metric 80 :time 0}
+                {:metric 40 :time 1}
+                {:metric 40 :time 12}
+                {:metric 41 :time 13}
+                {:metric 90 :time 14}]
+               [{:metric 40 :state "critical" :time 12}
+                {:metric 41 :state "critical" :time 13}]))
 
 (deftest between-test
   (test-stream (between {:min-threshold 70
                          :max-threshold 90
-                         :duration 10
-                         :service "bar"})
-               [{:metric 100 :time 0 :service "bar"}
-                {:metric 80 :time 1 :service "bar"}
-                {:metric 80 :time 12 :service "bar"}
-                {:metric 81 :time 13 :service "bar"}
-                {:metric 10 :time 14 :service "bar"}]
-               [{:metric 80 :state "critical" :time 12 :service "bar"}
-                {:metric 81 :state "critical" :time 13 :service "bar"}]))
+                         :duration 10})
+               [{:metric 100 :time 0}
+                {:metric 80 :time 1}
+                {:metric 80 :time 12}
+                {:metric 81 :time 13}
+                {:metric 10 :time 14}]
+               [{:metric 80 :state "critical" :time 12}
+                {:metric 81 :state "critical" :time 13}]))
 
 (deftest outside-test
   (test-stream (outside {:min-threshold 70
                          :max-threshold 90
-                         :duration 10
-                         :service "bar"})
-               [{:metric 80 :time 0 :service "bar"}
-                {:metric 100 :time 1 :service "bar"}
-                {:metric 101 :time 12 :service "bar"}
-                {:metric 1 :time 13 :service "bar"}
-                {:metric 70 :time 14  :service "bar"}]
-               [{:metric 101 :state "critical" :time 12 :service "bar"}
-                {:metric 1 :state "critical" :time 13 :service "bar"}]))
+                         :duration 10})
+               [{:metric 80 :time 0}
+                {:metric 100 :time 1}
+                {:metric 101 :time 12}
+                {:metric 1 :time 13}
+                {:metric 70 :time 14}]
+               [{:metric 101 :state "critical" :time 12}
+                {:metric 1 :state "critical" :time 13}]))
 
 (deftest critical-test
-  (test-stream (critical {:service "bar"
-                          :duration 10})
-               [{:time 0 :service "bar" :state "critical"}
-                {:time 1 :service "bar" :state "critical"}
-                {:time 12 :service "bar" :state "critical"}
-                {:time 13 :service "bar" :state "critical"}
-                {:time 14  :service "bar" :state "ok"}]
-               [{:state "critical" :time 12 :service "bar"}
-                {:state "critical" :time 13 :service "bar"}]))
-
+  (test-stream (critical {:duration 10})
+               [{:time 0 :state "critical"}
+                {:time 1 :state "critical"}
+                {:time 12 :state "critical"}
+                {:time 13 :state "critical"}
+                {:time 14 :state "ok"}]
+               [{:state "critical" :time 12}
+                {:state "critical" :time 13}]))
 
 (deftest generate-streams-test
   (let [out (atom [])
         child #(swap! out conj %)
-        s (generate-streams {:critical {:service "bar"
-                                        :duration 10
-                                        :children [child]}})]
+        s (generate-streams {:critical [{:duration 10
+                                         :children [child]}]})]
+    (s {:time 0 :service "baz" :state "critical"})
+    (s {:time 1 :service "bar" :state "critical"})
+    (s {:time 12 :service "bar" :state "critical"})
+    (s {:time 13 :service "lol" :state "critical"})
+    (s {:time 14  :service "bar" :state "ok"})
+    (is (= @out [{:state "critical" :time 12 :service "bar"}
+                 {:state "critical" :time 13 :service "lol"}])))
+  (let [out (atom [])
+        child #(swap! out conj %)
+        s (generate-streams {:critical [{:where #(= (:service %) "bar")
+                                         :duration 10
+                                         :children [child]}]})]
     (s {:time 0 :service "bar" :state "critical"})
     (s {:time 1 :service "bar" :state "critical"})
     (s {:time 12 :service "bar" :state "critical"})
@@ -138,13 +138,13 @@
                  {:state "critical" :time 13 :service "bar"}])))
   (let [out (atom [])
         child #(swap! out conj %)
-        s (generate-streams {:critical {:service "bar"
-                                        :duration 10
-                                        :children [child]}
-                             :threshold {:service "foo"
-                                         :warning 30
-                                         :critical 70
-                                         :children [child]}})]
+        s (generate-streams {:critical [{:where #(= (:service %) "bar")
+                                         :duration 10
+                                         :children [child]}]
+                             :threshold [{:where #(= (:service %) "foo")
+                                          :warning 30
+                                          :critical 70
+                                          :children [child]}]})]
     (s {:time 0 :service "bar" :state "critical"})
     (s {:time 1 :service "bar" :state "critical"})
     (s {:time 12 :service "bar" :state "critical"})
@@ -213,34 +213,30 @@
            {:time 23 :service "api req 0" :metric 30}]))))
 
 (deftest scount-test
-  (test-stream (scount {:service "foo" :duration 20})
-    [{:service "foo" :time 1}
-     {:service "bar" :time 1}
-     {:service "foo" :time 19}
-     {:service "bar" :time 21}
-     {:service "foo" :time 30}
-     {:service "foo" :time 31}
-     {:service "foo" :time 35}
-     {:service "foo" :time 61}]
-    [{:service "foo count" :time 1 :metric 2}
-     {:service "foo count" :time 30 :metric 3}
+  (test-stream (scount {:duration 20})
+    [{:time 1}
+     {:time 19}
+     {:time 30}
+     {:time 31}
+     {:time 35}
+     {:time 61}]
+    [{:time 1 :metric 2}
+     {:time 30 :metric 3}
      ;; no event during the time window
-     (riemann.common/event {:metric 0 :service "foo count" :time 61})]))
+     (riemann.common/event {:metric 0 :time 61})]))
 
 (deftest scount-crit-test
   (test-stream (scount-crit {:service "foo"
                              :duration 20
                              :critical-fn #(> (:metric %) 5)})
-    [{:service "foo" :time 1}
-     {:service "bar" :time 1}
-     {:service "foo" :time 2}
-     {:service "foo" :time 3}
-     {:service "foo" :time 4}
-     {:service "foo" :time 5}
-     {:service "foo" :time 19}
-     {:service "bar" :time 21}
-     {:service "foo" :time 30}
-     {:service "foo" :time 31}
-     {:service "foo" :time 35}
-     {:service "foo" :time 61}]
-    [{:service "foo count" :time 1 :metric 6 :state "critical"}]))
+    [{:time 1}
+     {:time 2}
+     {:time 3}
+     {:time 4}
+     {:time 5}
+     {:time 19}
+     {:time 30}
+     {:time 31}
+     {:time 35}
+     {:time 61}]
+    [{:time 1 :metric 6 :state "critical"}]))
