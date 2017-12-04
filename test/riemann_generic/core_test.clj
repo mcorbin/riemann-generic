@@ -240,3 +240,6 @@
      {:time 35}
      {:time 61}]
     [{:time 1 :metric 6 :state "critical"}]))
+
+
+(def kafka-output #(println % " => event"))

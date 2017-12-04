@@ -21,18 +21,19 @@
 
   (threshold {:warning 30 :critical 70} email)"
   [opts & children]
-  (sdo
-    (when (:warning opts)
-      (where (and (< (:metric event) (:critical opts))
-               (>= (:metric event) (:warning opts)))
-        (with :state "warning"
-          (fn [event]
-            (call-rescue event children)))))
-    (when (:critical opts)
-      (where (>= (:metric event) (:critical opts))
-        (with :state "critical"
-          (fn [event]
-            (call-rescue event children)))))))
+  (let [child-streams (remove nil?
+                        [(when (:warning opts)
+                           (where (and (< (:metric event) (:critical opts))
+                                    (>= (:metric event) (:warning opts)))
+                             (with :state "warning"
+                               (fn [event]
+                                 (call-rescue event children)))))
+                         (when (:critical opts)
+                           (where (>= (:metric event) (:critical opts))
+                             (with :state "critical"
+                               (fn [event]
+                                 (call-rescue event children)))))])]
+    (apply sdo child-streams)))
 
 (defn threshold-fn
   "Use the `:warning-fn` and `:critical-fn` values (which should be function
@@ -52,17 +53,18 @@
   In this example, event :state will be \"warning\" if `:metric` is >= 30 and < 70
   and \"critical\" if `:metric` is >= 70"
   [opts & children]
-  (sdo
-    (when (:warning-fn opts)
-      (where ((:warning-fn opts) event)
-        (with :state "warning"
-          (fn [event]
-            (call-rescue event children)))))
-    (when (:critical-fn opts)
-      (where ((:critical-fn opts) event)
-        (with :state "critical"
-          (fn [event]
-            (call-rescue event children)))))))
+  (let [child-streams (remove nil?
+                        [(when (:warning-fn opts)
+                           (where ((:warning-fn opts) event)
+                                  (with :state "warning"
+                                        (fn [event]
+                                          (call-rescue event children)))))
+                         (when (:critical-fn opts)
+                           (where ((:critical-fn opts) event)
+                                  (with :state "critical"
+                                        (fn [event]
+                                          (call-rescue event children)))))])]
+    (apply sdo child-streams)))
 
 (defn above
   "If the condition `(> (:metric event) threshold)` is valid for all events
@@ -169,16 +171,19 @@
 
 (defn percentile-crit
   [opts & children]
-  (where (service (str (:service opts) " " (:point opts)))
-    (when-let [warning-fn (:warning-fn opts)]
-      (where (warning-fn event)
-        (with :state "warning"
-          (fn [event]
-            (call-rescue event children)))))
-    (where ((:critical-fn opts) event)
-      (with :state "critical"
-        (fn [event]
-          (call-rescue event children))))))
+  (let [child-streams (remove nil?
+                  [(when-let [warning-fn (:warning-fn opts)]
+                     (where (warning-fn event)
+                       (with :state "warning"
+                         (fn [event]
+                           (call-rescue event children)))))
+                   (when-let [critical-fn (:critical-fn opts)]
+                     (where (critical-fn event)
+                       (with :state "critical"
+                         (fn [event]
+                           (call-rescue event children)))))])]
+    (where (service (str (:service opts) " " (:point opts)))
+      (apply sdo child-streams))))
 
 (defn percentiles-crit
   "Calculates percentiles and alert on it.
@@ -255,16 +260,18 @@ Example:
   is > to 5, set `:state` to \"critical\" and forward and forward the result to
   children."
   [opts & children]
-  (scount opts
-    (where ((:critical-fn opts) event)
-      (with :state "critical"
-        (fn [event]
-          (call-rescue event children))))
-    (when-let [warning-fn (:warning-fn opts)]
-      (where (warning-fn event)
-        (with :state "warning"
-          (fn [event]
-            (call-rescue event children)))))))
+  (let [child-streams (remove nil? [(when-let [critical-fn (:critical-fn opts)]
+                                      (where  (critical-fn event)
+                                        (with :state "critical"
+                                          (fn [event]
+                                            (call-rescue event children)))))
+                                    (when-let [warning-fn (:warning-fn opts)]
+                                      (where (warning-fn event)
+                                        (with :state "warning"
+                                          (fn [event]
+                                            (call-rescue event children)))))])]
+    (scount opts
+      (apply sdo child-streams))))
 
 (defn expired-host
   [opts & children]
@@ -303,7 +310,7 @@ Example:
                             (where (match-clause event)
                               stream)
                             stream)))
-                  streams-config)]
+                      streams-config)]
     (apply sdo streams)))
 
 (defn generate-streams
