@@ -13,7 +13,7 @@
 
   `opts` keys:
   - `:critical` : A number, the event `:state` will be set to `critical` if the
-  event metric is >= to the value.
+  event metric is >= to the value. (optional)
   - `:warning`  : A number, the event `:state` will be set to `warning` if the
   event metric is < to `:critical` and >= to `:warning` (optional)
 
@@ -41,7 +41,7 @@
   children
 
   `opts` keys:
-  - `:critical-fn` : A function accepting an event and returning a boolean.
+  - `:critical-fn` : A function accepting an event and returning a boolean (optional).
   - `:warning-fn`  : A function accepting an event and returning a boolean (optional).
 
   Example:
@@ -193,8 +193,8 @@
   - `:duration`  : The time period in seconds.
   - `:points`    : A map, the keys are the percentiles points.
   The value should be a map with these keys:
-  - `:critical-fn` a function accepting an event and returning a boolean.
-  - `:warning-fn` a function accepting an event and returning a boolean.
+  - `:critical-fn` a function accepting an event and returning a boolean (optional).
+  - `:warning-fn` a function accepting an event and returning a boolean (optional).
   For each point, if the event match `:warning-fn` and `:critical-fn`, the event `:state` will be \"warning\" or \"critical\"
 
 Example:
@@ -250,7 +250,7 @@ Example:
 
   `opts` keys:
   - `:duration`   : The time period in seconds.
-  - `:critical-fn` : A function accepting an event and returning a boolean.
+  - `:critical-fn` : A function accepting an event and returning a boolean (optional).
   - `:warning-fn`  : A function accepting an event and returning a boolean (optional).
   Example:
 
