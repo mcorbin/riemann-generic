@@ -1,6 +1,6 @@
 # Riemann generic
 
-## Build
+## Build
 
 `lein uberjar`
 
