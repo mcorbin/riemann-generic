@@ -1,4 +1,4 @@
-# Riemann generic [![CircleCI](https://circleci.com/gh/martinwangjian/riemann-generic.svg?style=shield)](https://circleci.com/gh/martinwangjian/riemann-generic)
+# Riemann generic [![CircleCI](https://circleci.com/gh/mcorbin/riemann-generic.svg?style=shield)](https://circleci.com/gh/mcorbin/riemann-generic)
 
 ## Build
 
