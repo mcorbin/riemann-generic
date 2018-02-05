@@ -16,6 +16,7 @@
   event metric is >= to the value. (optional)
   - `:warning`  : A number, the event `:state` will be set to `warning` if the
   event metric is < to `:critical` and >= to `:warning` (optional)
+  - `:signature`: A string, the event `:signature` will be added to identify formally an alert (optional)
 
   Example:
 
@@ -25,12 +26,12 @@
                         [(when (:warning opts)
                            (where (and (< (:metric event) (:critical opts))
                                     (>= (:metric event) (:warning opts)))
-                             (with :state "warning"
+                             (with {:state "warning" :signature (:signature opts)}
                                (fn [event]
                                  (call-rescue event children)))))
                          (when (:critical opts)
                            (where (>= (:metric event) (:critical opts))
-                             (with :state "critical"
+                             (with {:state "critical" :signature (:signature opts)}
                                (fn [event]
                                  (call-rescue event children)))))])]
     (apply sdo child-streams)))
@@ -43,7 +44,7 @@
   `opts` keys:
   - `:critical-fn` : A function accepting an event and returning a boolean (optional).
   - `:warning-fn`  : A function accepting an event and returning a boolean (optional).
-
+  - `:signature`   : A string, the event `:signature` will be added to identify formally an alert (optional)
   Example:
 
   (threshold-fn {:warning-fn #(and (>= (:metric %) 30)
@@ -56,12 +57,12 @@
   (let [child-streams (remove nil?
                         [(when (:warning-fn opts)
                            (where ((:warning-fn opts) event)
-                                  (with :state "warning"
+                                  (with {:state "warning" :signature (:signature opts)}
                                         (fn [event]
                                           (call-rescue event children)))))
                          (when (:critical-fn opts)
                            (where ((:critical-fn opts) event)
-                                  (with :state "critical"
+                                  (with {:state "critical" :signature (:signature opts)}
                                         (fn [event]
                                           (call-rescue event children)))))])]
     (apply sdo child-streams)))
@@ -74,7 +75,8 @@
 
   `opts` keys:
   - `:threshold` : The threshold used by the above stream
-  - `:duration`   : The time period in seconds.
+  - `:duration`  : The time period in seconds.
+  - `:signature` : A string, the event `:signature` will be added to identify formally an alert (optional)
 
   Example:
 
@@ -83,7 +85,7 @@
   Set `:state` to \"critical\" if events `:metric` is > to 70 during 10 sec or more."
   [opts & children]
   (dt/above (:threshold opts) (:duration opts)
-    (with :state "critical"
+    (with { :state "critical" :signature (:signature opts) }
       (fn [event]
         (call-rescue event children)))))
 
@@ -98,6 +100,7 @@
   - `:threshold-fn` : A function accepting an event and returning a boolean.
   - `:duration`     : The time period in seconds.
   - `:state`        : The state of event forwarded to children.
+  - `:signature` : A string, the event `:signature` will be added to identify formally an alert (optional)
 
   Example:
 
@@ -110,7 +113,7 @@
   Set `:state` to \"critical\" if events `:metric` is > to 42 and `:metric` is \"foo\" during 10 sec or more."
   [opts & children]
   (dt/cond-dt (:threshold-fn opts) (:duration opts) 
-    (with :state (:state opts) 
+    (with { :state (:state opts) :signature (:signature opts) }
       (fn [event]
         (call-rescue event children)))))
 
@@ -123,7 +126,8 @@
 
   `opts` keys:
   - `:threshold` : The threshold used by the above stream
-  - `:duration`   : The time period in seconds.
+  - `:duration`  : The time period in seconds.
+  - `:signature` : A string, the event `:signature` will be added to identify formally an alert (optional)
 
   Example:
 
@@ -132,7 +136,7 @@
   Set `:state` to \"critical\" if events `:metric` is < to 70 during 10 sec or more."
   [opts & children]
   (dt/below (:threshold opts) (:duration opts)
-    (with :state "critical"
+    (with { :state "critical" :signature (:signature opts) }
       (fn [event]
         (call-rescue event children)))))
 
@@ -142,7 +146,8 @@
   `opts` keys:
   - `:min-threshold` : The min threshold
   - `:max-threshold` : The max threshold
-  - `:duration`   : The time period in seconds.
+  - `:duration`      : The time period in seconds.
+  - `:signature`     : A string, the event `:signature` will be added to identify formally an alert (optional)
 
   Example:
 
@@ -153,7 +158,7 @@
   Set `:state` to \"critical\" if events `:metric` is < to 70 or > 90 during 10 sec or more."
   [opts & children]
   (dt/outside (:min-threshold opts) (:max-threshold opts) (:duration opts)
-    (with :state "critical"
+    (with { :state "critical" :signature (:signature opts) }
       (fn [event]
         (call-rescue event children)))))
 
@@ -164,7 +169,8 @@
   `opts` keys:
   - `:min-threshold` : The min threshold
   - `:max-threshold` : The max threshold
-  - `:duration`   : The time period in seconds.
+  - `:duration`      : The time period in seconds.
+  - `:signature`     : A string, the event `:signature` will be added to identify formally an alert (optional)
 
   Example:
 
@@ -176,7 +182,7 @@
   Set `:state` to \"critical\" if events `:metric` is > to 70 and < 90 during 10 sec or more."
   [opts & children]
   (dt/between (:min-threshold opts) (:max-threshold opts) (:duration opts)
-    (with :state "critical"
+    (with { :state "critical" :signature (:signature opts) }
       (fn [event]
         (call-rescue event children)))))
 
@@ -186,6 +192,7 @@
 
   `opts` keys:
   - `:duration`   : The time period in seconds.
+  - `:signature`     : A string, the event `:signature` will be added to identify formally an alert (optional)
 
   Example:
 
@@ -194,8 +201,9 @@
   Set `:state` to \"critical\" if events `:state` is critical during 10 sec or more."
   [opts & children]
   (dt/critical (:duration opts)
-    (fn [event]
-      (call-rescue event children))))
+    (with :signature (:signature opts)
+      (fn [event]
+        (call-rescue event children)))))
 
 (defn percentile-crit
   [opts & children]
@@ -244,8 +252,9 @@ Example:
         children (conj percentiles-streams (second children))]
     (where (service (:service opts))
       (percentiles (:duration opts) points
-        (fn [event]
-          (call-rescue event children))))))
+        (with :signature (:signature opts)
+          (fn [event]
+            (call-rescue event children)))))))
 
 (defn scount
   "Takes a time period in seconds `:duration`.
@@ -255,6 +264,7 @@ Example:
 
   `opts` keys:
   - `:duration`   : The time period in seconds.
+  - `:signature`  : A string, the event `:signature` will be added to identify formally an alert (optional)
 
   Example:
 
@@ -264,8 +274,9 @@ Example:
   [opts & children]
   (fixed-time-window 20
     (smap riemann.folds/count
-      (fn [event]
-        (call-rescue event children)))))
+      (with :signature (:signature opts)
+        (fn [event]
+          (call-rescue event children))))))
 
 (defn scount-crit
   "Takes a time period in seconds `:duration`.
@@ -277,9 +288,10 @@ Example:
   Forward the result to children
 
   `opts` keys:
-  - `:duration`   : The time period in seconds.
+  - `:duration`    : The time period in seconds.
   - `:critical-fn` : A function accepting an event and returning a boolean (optional).
   - `:warning-fn`  : A function accepting an event and returning a boolean (optional).
+  - `:signature`   : A string, the event `:signature` will be added to identify formally an alert (optional)
   Example:
 
   (scount {:duration 20 :critical-fn #(> (:metric %) 5)} children)
@@ -290,12 +302,12 @@ Example:
   [opts & children]
   (let [child-streams (remove nil? [(when-let [critical-fn (:critical-fn opts)]
                                       (where  (critical-fn event)
-                                        (with :state "critical"
+                                        (with { :state "critical" :signature (:signature opts) }
                                           (fn [event]
                                             (call-rescue event children)))))
                                     (when-let [warning-fn (:warning-fn opts)]
                                       (where (warning-fn event)
-                                        (with :state "warning"
+                                        (with { :state "warning" :signature (:signature opts) }
                                           (fn [event]
                                             (call-rescue event children)))))])]
     (scount opts
@@ -312,7 +324,7 @@ Example:
             (index)))))
     (expired
       (where (service "host up")
-        (with :description "host stopped sending events to Riemann"
+        (with { :state (:state opts) :description "host stopped sending events to Riemann" :signature (:signature opts) }
           (fn [event]
             (call-rescue event children)))))))
 
